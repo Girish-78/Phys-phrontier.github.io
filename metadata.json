@@ -1,0 +1,8 @@
+{
+  "name": "Physics Phrontier",
+  "description": "An interactive physics education platform for high school students and competitive exam aspirants, featuring simulations, worksheets, and specialized Indian Astronomy modules.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
