@@ -21,25 +21,18 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd }) => {
     description: '',
     userGuide: '',
     contentUrl: '',
-    learningOutcomes: ''
+    learningOutcomes: '',
+    thumbnailUrl: ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newResource: PhysicsResource = {
+    onAdd({
       id: Date.now().toString(),
-      title: formData.title,
-      category: formData.category,
-      subCategory: formData.subCategory,
-      type: formData.type,
-      author: formData.author,
-      description: formData.description,
-      userGuide: formData.userGuide,
-      contentUrl: formData.contentUrl,
+      ...formData,
       learningOutcomes: formData.learningOutcomes.split('\n').filter(o => o.trim() !== ''),
       createdAt: new Date().toISOString()
-    };
-    onAdd(newResource);
+    });
     navigate('/');
   };
 
@@ -54,45 +47,56 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd }) => {
     setLoading(false);
   };
 
+  const checkUrlSafety = (url: string) => {
+    if (url.includes('github.com') && url.includes('/blob/')) {
+        const fixed = url.replace('github.com', 'raw.githack.com').replace('/blob/', '/');
+        if (confirm("I noticed this is a standard GitHub link. It won't work directly. Would you like me to convert it to an embed-friendly URL?")) {
+            setFormData(p => ({ ...p, contentUrl: fixed }));
+        }
+    }
+  };
+
   return (
-    <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-      <div className="flex items-center gap-4 mb-8">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+    <div className="max-w-4xl mx-auto pb-20 animate-in fade-in zoom-in-95 duration-700">
+      <div className="flex items-center gap-6 mb-12">
+        <button onClick={() => navigate(-1)} className="w-12 h-12 flex items-center justify-center bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-50 transition-all hover:scale-110 shadow-sm">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
         </button>
-        <h1 className="text-3xl font-extrabold text-slate-900">Add New Resource</h1>
+        <h1 className="text-4xl font-black text-slate-900 tracking-tight">Add New Lab Module</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-8 bg-white p-8 rounded-3xl border border-slate-200 shadow-xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-700">Resource Title</label>
+      <form onSubmit={handleSubmit} className="space-y-10 bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-50/50 rounded-bl-[10rem] -z-0"></div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+          <div className="space-y-3">
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Resource Title</label>
             <input 
               required
               type="text"
-              className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-400 outline-none"
-              placeholder="e.g. Newton's Second Law Simulation"
+              className="w-full px-6 py-4 rounded-[1.25rem] bg-slate-50 border border-slate-100 focus:ring-4 focus:ring-indigo-400/10 focus:bg-white focus:border-indigo-400 outline-none transition-all font-bold text-slate-800 placeholder:text-slate-300"
+              placeholder="e.g. Newton's Lab"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-700">Author / Creator</label>
+          <div className="space-y-3">
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Creator</label>
             <input 
               required
               type="text"
-              className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-400 outline-none"
-              placeholder="Your name or organization"
+              className="w-full px-6 py-4 rounded-[1.25rem] bg-slate-50 border border-slate-100 focus:ring-4 focus:ring-indigo-400/10 focus:bg-white focus:border-indigo-400 outline-none transition-all font-bold text-slate-800 placeholder:text-slate-300"
+              placeholder="Full Name"
               value={formData.author}
               onChange={(e) => setFormData({ ...formData, author: e.target.value })}
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-700">Category</label>
+          <div className="space-y-3">
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Main Category</label>
             <select 
-              className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-400 outline-none"
+              className="w-full px-6 py-4 rounded-[1.25rem] bg-slate-50 border border-slate-100 focus:ring-4 focus:ring-indigo-400/10 focus:bg-white focus:border-indigo-400 outline-none transition-all font-bold text-slate-800"
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
             >
@@ -100,27 +104,27 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd }) => {
             </select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-700">Sub-category</label>
+          <div className="space-y-3">
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Sub-topic</label>
             <input 
               required
               type="text"
-              className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-400 outline-none"
-              placeholder="e.g. Dynamics"
+              className="w-full px-6 py-4 rounded-[1.25rem] bg-slate-50 border border-slate-100 focus:ring-4 focus:ring-indigo-400/10 focus:bg-white focus:border-indigo-400 outline-none transition-all font-bold text-slate-800 placeholder:text-slate-300"
+              placeholder="e.g. Gravity"
               value={formData.subCategory}
               onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-bold text-slate-700">Resource Type</label>
-            <div className="flex gap-4">
+          <div className="space-y-3 md:col-span-2">
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Resource Format</label>
+            <div className="flex flex-wrap gap-4">
               {Object.values(ResourceType).map(type => (
                 <button
                   key={type}
                   type="button"
                   onClick={() => setFormData({ ...formData, type })}
-                  className={`flex-1 py-3 rounded-xl border-2 font-bold text-sm transition-all ${formData.type === type ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}
+                  className={`flex-1 min-w-[120px] py-4 rounded-[1.25rem] border-2 font-black text-xs uppercase tracking-widest transition-all ${formData.type === type ? 'border-indigo-600 bg-indigo-50 text-indigo-600 shadow-lg shadow-indigo-100' : 'border-slate-50 bg-slate-50 text-slate-400 hover:border-slate-200'}`}
                 >
                   {type}
                 </button>
@@ -128,85 +132,92 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd }) => {
             </div>
           </div>
 
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-bold text-slate-700">Content URL (Simulation or File Link)</label>
+          <div className="space-y-3 md:col-span-2">
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Content URL</label>
             <input 
               required
               type="url"
-              className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-400 outline-none"
-              placeholder="https://..."
+              className="w-full px-6 py-4 rounded-[1.25rem] bg-slate-50 border border-slate-100 focus:ring-4 focus:ring-indigo-400/10 focus:bg-white focus:border-indigo-400 outline-none transition-all font-bold text-slate-800 placeholder:text-slate-300"
+              placeholder="https://simulation-source.com/..."
               value={formData.contentUrl}
+              onBlur={() => checkUrlSafety(formData.contentUrl)}
               onChange={(e) => setFormData({ ...formData, contentUrl: e.target.value })}
             />
-            <div className="bg-blue-50 p-4 rounded-xl text-xs text-blue-700 mt-2 border border-blue-100">
-              <p className="font-bold mb-1 flex items-center gap-1">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                Admin Pro-tip for GitHub Users:
-              </p>
-              <p>Standard GitHub links (e.g., <code>github.com/user/repo/blob/index.html</code>) <strong>will not work</strong> in the player because GitHub blocks embedding. Use <strong>GitHub Pages</strong>, Vercel, or a tool like <code>raw.githack.com</code> to get an embeddable URL.</p>
-            </div>
+          </div>
+
+          <div className="space-y-3 md:col-span-2">
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Thumbnail URL (Optional)</label>
+            <input 
+              type="url"
+              className="w-full px-6 py-4 rounded-[1.25rem] bg-slate-50 border border-slate-100 focus:ring-4 focus:ring-indigo-400/10 focus:bg-white focus:border-indigo-400 outline-none transition-all font-bold text-slate-800 placeholder:text-slate-300"
+              placeholder="Leave blank for auto-image"
+              value={formData.thumbnailUrl}
+              onChange={(e) => setFormData({ ...formData, thumbnailUrl: e.target.value })}
+            />
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-slate-700">Short Description</label>
+        <div className="space-y-3 relative z-10">
+          <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Brief Narrative</label>
           <textarea 
             required
             rows={2}
-            className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-400 outline-none"
-            placeholder="A brief overview of what this resource covers..."
+            className="w-full px-6 py-4 rounded-[1.25rem] bg-slate-50 border border-slate-100 focus:ring-4 focus:ring-indigo-400/10 focus:bg-white focus:border-indigo-400 outline-none transition-all font-bold text-slate-800 placeholder:text-slate-300 resize-none"
+            placeholder="Tell the student what they'll discover..."
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-slate-700">User Guide / Instructions</label>
+        <div className="space-y-3 relative z-10">
+          <label className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Step-by-Step Instructions</label>
           <textarea 
             required
             rows={2}
-            className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-400 outline-none"
-            placeholder="Step-by-step instructions for the student..."
+            className="w-full px-6 py-4 rounded-[1.25rem] bg-slate-50 border border-slate-100 focus:ring-4 focus:ring-indigo-400/10 focus:bg-white focus:border-indigo-400 outline-none transition-all font-bold text-slate-800 placeholder:text-slate-300 resize-none"
+            placeholder="1. Slide the dial... 2. Observe the wave..."
             value={formData.userGuide}
             onChange={(e) => setFormData({ ...formData, userGuide: e.target.value })}
           />
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-bold text-slate-700">Learning Outcomes (one per line)</label>
+        <div className="space-y-4 relative z-10">
+          <div className="flex items-center justify-between px-1">
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Expected Outcomes</label>
             <button 
               type="button"
               onClick={handleSuggestOutcomes}
               disabled={loading}
-              className="text-blue-600 text-xs font-black uppercase hover:underline flex items-center gap-1 disabled:opacity-50"
+              className="text-indigo-600 text-[10px] font-black uppercase tracking-[0.15em] hover:text-indigo-800 transition-colors flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-lg"
             >
-              {loading ? 'AI Thinking...' : '✨ Suggest with Gemini AI'}
+              {loading ? (
+                  <span className="flex items-center gap-2"><div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div> Brainstorming...</span>
+              ) : '✨ AI Suggest'}
             </button>
           </div>
           <textarea 
             required
             rows={4}
-            className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-400 outline-none"
-            placeholder="1. Understand friction forces&#10;2. Calculate coefficients of static friction..."
+            className="w-full px-6 py-4 rounded-[1.25rem] bg-slate-50 border border-slate-100 focus:ring-4 focus:ring-indigo-400/10 focus:bg-white focus:border-indigo-400 outline-none transition-all font-bold text-slate-800 placeholder:text-slate-300"
+            placeholder="One key outcome per line..."
             value={formData.learningOutcomes}
             onChange={(e) => setFormData({ ...formData, learningOutcomes: e.target.value })}
           />
         </div>
 
-        <div className="pt-4 border-t border-slate-100 flex justify-end gap-4">
+        <div className="pt-10 border-t border-slate-100 flex flex-col sm:flex-row justify-end gap-4 relative z-10">
           <button 
             type="button"
             onClick={() => navigate(-1)}
-            className="px-8 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-colors"
+            className="px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-all"
           >
             Cancel
           </button>
           <button 
             type="submit"
-            className="px-10 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg hover:bg-blue-700 transition-all hover:-translate-y-0.5"
+            className="px-12 py-5 bg-indigo-600 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest shadow-[0_20px_40px_-15px_rgba(79,70,229,0.3)] hover:bg-indigo-700 hover:-translate-y-1 active:translate-y-0 transition-all"
           >
-            Publish Resource
+            Publish To Phrontier
           </button>
         </div>
       </form>
