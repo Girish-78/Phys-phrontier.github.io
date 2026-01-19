@@ -4,11 +4,8 @@ export enum UserRole {
   STUDENT = 'STUDENT'
 }
 
-// Added missing ResourceType enum members to resolve property 'CHEATSHEET' and 'WORKSHEET' errors
 export enum ResourceType {
-  SIMULATION = 'Simulation',
-  WORKSHEET = 'Worksheet',
-  CHEATSHEET = 'Cheatsheet'
+  SIMULATION = 'Simulation'
 }
 
 export interface User {
@@ -27,7 +24,7 @@ export interface PhysicsResource {
   description: string;
   userGuide: string;
   learningOutcomes: string[];
-  contentUrl: string; // URL for simulation (iframe)
+  contentUrl: string; 
   thumbnailUrl?: string;
   createdAt: string;
 }
