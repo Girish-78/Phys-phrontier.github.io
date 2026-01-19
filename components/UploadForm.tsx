@@ -38,51 +38,89 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
     }
   }, [editData]);
 
-  // Handle actual Cloud Upload via API
+  // Handle actual Cloud Upload via API with timeout and error handling
   const uploadToCloud = async (file: File) => {
     setUploading(`Uploading ${file.name}...`);
+    
+    // Create an AbortController to handle timeouts
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
     try {
-      const formData = new FormData();
-      formData.append('file', file);
+      const data = new FormData();
+      data.append('file', file);
       
       const response = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
+        body: data,
+        signal: controller.signal
       });
       
-      if (!response.ok) throw new Error('Upload failed');
-      const data = await response.json();
-      return data.url;
-    } catch (e) {
-      alert("Failed to upload to Vercel Blob. Ensure your environment variables are configured.");
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Upload failed');
+      }
+
+      const result = await response.json();
+      return result.url;
+    } catch (e: any) {
+      console.error("Cloud Upload Error:", e);
+      let errorMsg = "Upload failed.";
+      if (e.name === 'AbortError') {
+        errorMsg = "Request timed out. The file might be too large or the server is busy.";
+      } else {
+        errorMsg = e.message || "Failed to upload to Vercel Blob.";
+      }
+      alert(errorMsg);
       throw e;
     } finally {
       setUploading(null);
+      clearTimeout(timeoutId);
     }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Basic size check before attempting upload
+      if (file.size > 4.5 * 1024 * 1024) {
+        alert("Image is too large. Please keep it under 4.5MB.");
+        return;
+      }
       try {
         const url = await uploadToCloud(file);
         setFormData(prev => ({ ...prev, thumbnailUrl: url }));
-      } catch (err) {}
+      } catch (err) {
+        // Error already handled in uploadToCloud
+      }
     }
   };
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 4.5 * 1024 * 1024) {
+        alert("PDF is too large. Please keep it under 4.5MB.");
+        return;
+      }
       try {
         const url = await uploadToCloud(file);
         setFormData(prev => ({ ...prev, contentUrl: url }));
-      } catch (err) {}
+      } catch (err) {
+        // Error already handled
+      }
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.contentUrl) {
+      alert("Please provide a simulation URL or upload a PDF.");
+      return;
+    }
+
     setLoading(true);
     
     const payload: PhysicsResource = {
@@ -96,7 +134,6 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
     } as PhysicsResource;
 
     try {
-      // POST to Vercel KV via our API route
       const response = await fetch('/api/resources', {
         method: editData ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,10 +145,10 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
         else onAdd(payload);
         navigate('/');
       } else {
-        throw new Error("Cloud save failed");
+        throw new Error("Failed to save to cloud database.");
       }
-    } catch (err) {
-      alert("Error saving to Cloud Database. Please check your network.");
+    } catch (err: any) {
+      alert(err.message || "Error saving to Cloud Database.");
     } finally {
       setLoading(false);
     }
@@ -141,9 +178,10 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
 
       <form onSubmit={handleSubmit} className="space-y-12 bg-[#0F172A] p-12 rounded-[4rem] border border-white/10 shadow-2xl relative">
         {uploading && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-[4rem]">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-[4rem] p-10 text-center">
              <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-             <p className="font-black text-white uppercase tracking-widest text-xs animate-pulse">{uploading}</p>
+             <p className="font-black text-white uppercase tracking-widest text-xs animate-pulse mb-2">{uploading}</p>
+             <p className="text-slate-400 text-[10px] max-w-xs">This might take a minute depending on your connection.</p>
           </div>
         )}
 
@@ -186,6 +224,12 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
                 <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
               </label>
             </div>
+            {formData.thumbnailUrl && (
+              <div className="mt-4 flex items-center gap-4">
+                <img src={formData.thumbnailUrl} alt="Preview" className="w-20 h-20 object-cover rounded-2xl border border-white/10" />
+                <button type="button" onClick={() => setFormData(prev => ({ ...prev, thumbnailUrl: '' }))} className="text-red-400 text-[10px] font-black uppercase tracking-widest hover:underline">Remove</button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -196,8 +240,8 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
 
         <div className="pt-12 border-t border-white/5 flex flex-col sm:flex-row justify-end gap-5">
           <button type="button" onClick={() => navigate(-1)} className="px-12 py-6 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-600 hover:text-slate-400">Discard</button>
-          <button type="submit" disabled={loading} className="px-14 py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-indigo-500 transition-all disabled:opacity-50">
-            {loading ? 'Saving to KV Cloud...' : (editData ? 'Sync Changes' : 'Push to Cloud Library')}
+          <button type="submit" disabled={loading || !!uploading} className="px-14 py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-indigo-500 transition-all disabled:opacity-50">
+            {loading ? 'Saving to Cloud...' : (editData ? 'Sync Changes' : 'Push to Cloud Library')}
           </button>
         </div>
       </form>
