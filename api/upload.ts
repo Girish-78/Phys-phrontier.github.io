@@ -1,9 +1,7 @@
 
 import { put } from '@vercel/blob';
 
-export const config = {
-  runtime: 'edge',
-};
+export const runtime = 'nodejs';
 
 export default async function handler(request: Request) {
   if (request.method !== 'POST') {

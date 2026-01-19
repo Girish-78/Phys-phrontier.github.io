@@ -1,9 +1,7 @@
 
 import { kv } from '@vercel/kv';
 
-export const config = {
-  runtime: 'edge',
-};
+export const runtime = 'nodejs';
 
 const KV_KEY = 'phrontier_resources_v1';
 
