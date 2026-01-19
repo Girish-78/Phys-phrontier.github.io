@@ -1,7 +1,8 @@
 
 import { put } from '@vercel/blob';
 
-export const runtime = 'nodejs';
+// Edge runtime handles binary Request bodies much better than Node.js for streaming
+export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 export default async function handler(request: Request) {
@@ -14,43 +15,49 @@ export default async function handler(request: Request) {
 
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) {
-    return new Response(JSON.stringify({ error: 'Server configuration error: Missing storage token.' }), { 
+    return new Response(JSON.stringify({ 
+      error: 'CRITICAL: BLOB_READ_WRITE_TOKEN is not configured in Vercel Environment Variables.' 
+    }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
   }
 
   try {
-    // Get metadata from custom headers
-    const filename = request.headers.get('x-filename') || 'upload-' + Date.now();
+    // Standardize metadata from headers
+    const rawFilename = request.headers.get('x-filename') || 'unnamed-file';
+    const filename = decodeURIComponent(rawFilename);
     const contentType = request.headers.get('x-content-type') || 'application/octet-stream';
     
-    // Read the body as an ArrayBuffer (Direct binary stream)
-    const arrayBuffer = await request.arrayBuffer();
+    // Read the binary stream directly from the request
+    const body = request.body;
     
-    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-      return new Response(JSON.stringify({ error: 'Empty file body provided' }), { 
+    if (!body) {
+      return new Response(JSON.stringify({ error: 'No file content found in request body.' }), { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // Upload directly to Vercel Blob
-    const blob = await put(filename, arrayBuffer, {
+    // Direct upload to Vercel Blob via Edge Stream
+    const blob = await put(filename, body, {
       access: 'public',
       addRandomSuffix: true,
       contentType: contentType,
       token: token
     });
 
-    return new Response(JSON.stringify({ url: blob.url }), {
+    return new Response(JSON.stringify({ 
+      success: true,
+      url: blob.url 
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
-    console.error("Critical Upload Error:", error);
+    console.error("Vercel Edge Upload Error:", error);
     return new Response(JSON.stringify({ 
-      error: error.message || 'The server encountered an error during cloud synchronization.' 
+      error: error.message || 'Internal Cloud Sync Failure' 
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
