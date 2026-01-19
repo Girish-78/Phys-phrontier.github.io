@@ -1,7 +1,7 @@
 
 import { put } from '@vercel/blob';
 
-// Edge runtime handles binary Request bodies much better than Node.js for streaming
+// Edge runtime is used for speed, but we consume the buffer to ensure stability
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
@@ -13,10 +13,11 @@ export default async function handler(request: Request) {
     });
   }
 
+  // Vercel injects this automatically when you link the store
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) {
     return new Response(JSON.stringify({ 
-      error: 'CRITICAL: BLOB_READ_WRITE_TOKEN is not configured in Vercel Environment Variables.' 
+      error: 'CRITICAL: Blob Storage Token not found. Please redeploy your Vercel project.' 
     }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
@@ -24,23 +25,22 @@ export default async function handler(request: Request) {
   }
 
   try {
-    // Standardize metadata from headers
-    const rawFilename = request.headers.get('x-filename') || 'unnamed-file';
+    const rawFilename = request.headers.get('x-filename') || 'sync-file-' + Date.now();
     const filename = decodeURIComponent(rawFilename);
     const contentType = request.headers.get('x-content-type') || 'application/octet-stream';
     
-    // Read the binary stream directly from the request
-    const body = request.body;
+    // Consume the body as an ArrayBuffer first to avoid stream-hang issues in Edge
+    const buffer = await request.arrayBuffer();
     
-    if (!body) {
-      return new Response(JSON.stringify({ error: 'No file content found in request body.' }), { 
+    if (!buffer || buffer.byteLength === 0) {
+      return new Response(JSON.stringify({ error: 'Sync failed: Payload was empty.' }), { 
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // Direct upload to Vercel Blob via Edge Stream
-    const blob = await put(filename, body, {
+    // Direct upload to the global CDN via Vercel Blob
+    const blob = await put(filename, buffer, {
       access: 'public',
       addRandomSuffix: true,
       contentType: contentType,
@@ -52,12 +52,15 @@ export default async function handler(request: Request) {
       url: blob.url 
     }), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store'
+      },
     });
   } catch (error: any) {
-    console.error("Vercel Edge Upload Error:", error);
+    console.error("Vercel Edge Sync Error:", error);
     return new Response(JSON.stringify({ 
-      error: error.message || 'Internal Cloud Sync Failure' 
+      error: 'The cloud vault is currently busy or unreachable. Details: ' + (error.message || 'Unknown Error')
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
