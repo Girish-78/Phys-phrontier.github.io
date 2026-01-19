@@ -17,19 +17,19 @@ export default async function handler(request: Request) {
       const resources = await kv.get(KV_KEY);
       return new Response(JSON.stringify(resources || []), {
         status: 200,
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+        headers: { 'Content-Type': 'application/json' },
       });
     }
 
     if (method === 'POST' || method === 'PATCH') {
       const payload = await request.json();
       
-      // Auto-generate learning outcomes on the server if they don't exist
+      // Fast Learning Outcome Generation (Server-side)
       if (!payload.learningOutcomes || payload.learningOutcomes.length === 0) {
         try {
           const aiRes = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: `Generate 3 learning outcomes for physics simulation: ${payload.title}. Description: ${payload.description}`,
+            contents: `Briefly list 3 physics targets for: ${payload.title}.`,
             config: {
               responseMimeType: "application/json",
               responseSchema: {
@@ -40,7 +40,7 @@ export default async function handler(request: Request) {
           });
           payload.learningOutcomes = JSON.parse(aiRes.text);
         } catch (e) {
-          payload.learningOutcomes = ["Master " + payload.title, "Analyze experimental data", "Understand physical principles"];
+          payload.learningOutcomes = ["Understand " + payload.title, "Analyze physics data", "Apply principles"];
         }
       }
 
@@ -62,7 +62,7 @@ export default async function handler(request: Request) {
       return new Response(JSON.stringify({ success: true }), { status: 200 });
     }
 
-    return new Response('Not Allowed', { status: 405 });
+    return new Response('Method Not Allowed', { status: 405 });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }

@@ -10,19 +10,16 @@ export default async function handler(request: Request) {
 
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'System configuration error: API Key missing.' }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return new Response(JSON.stringify({ error: 'Config error' }), { status: 500 });
   }
 
   try {
-    const { task, title, description } = await request.json();
+    const { task, title, category } = await request.json();
     const ai = new GoogleGenAI({ apiKey: apiKey });
 
     if (task === 'thumbnail') {
-      // Simplified prompt to avoid safety filters and speed up generation
-      const prompt = `A professional 3D scientific visualization of: ${title}. ${description}. Laboratory aesthetic, bright cinematic lighting, high-tech, 1:1 ratio, no text.`;
+      // Stripped down prompt for maximum speed and safety
+      const prompt = `A clean, professional 3D scientific 3D illustration: ${title} in the context of ${category}. High-tech laboratory style, cinematic lighting, 1:1 ratio, no text.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
@@ -32,23 +29,17 @@ export default async function handler(request: Request) {
         },
       });
 
-      if (response.candidates && response.candidates[0]?.content?.parts) {
-        const imagePart = response.candidates[0].content.parts.find(p => p.inlineData);
-        if (imagePart?.inlineData?.data) {
-          return new Response(JSON.stringify({ data: imagePart.inlineData.data }), {
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
+      const imagePart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+      if (imagePart?.inlineData?.data) {
+        return new Response(JSON.stringify({ data: imagePart.inlineData.data }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
-      throw new Error("Gemini produced no valid image data.");
+      throw new Error("No image generated");
     }
 
     return new Response('Invalid Task', { status: 400 });
   } catch (error: any) {
-    console.error("AI Node Error:", error);
-    return new Response(JSON.stringify({ error: error.message || "AI Generation Timeout" }), { 
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return new Response(JSON.stringify({ error: "AI Busy" }), { status: 500 });
   }
 }
