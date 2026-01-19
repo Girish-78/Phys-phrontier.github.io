@@ -2,6 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export default async function handler(request: Request) {
   if (request.method !== 'POST') {
@@ -13,7 +14,6 @@ export default async function handler(request: Request) {
 
   try {
     const { task, title, category } = await request.json();
-    // Initialize Google GenAI with API key from environment
     const ai = new GoogleGenAI({ apiKey: apiKey });
 
     if (task === 'outcomes') {
@@ -29,17 +29,17 @@ export default async function handler(request: Request) {
         }
       });
       
-      // Safely access the .text property (not a method) from the response
       const outputText = res.text || '[]';
       const cleanText = outputText.replace(/```json|```/g, '').trim();
       return new Response(cleanText, { 
-        headers: { 'Content-Type': 'application/json' } 
+        headers: { 'Content-Type': 'application/json; charset=utf-8' } 
       });
     }
 
     return new Response(JSON.stringify({ error: 'Task obsolete' }), { status: 400 });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: "AI Congestion" }), { 
+    console.error("AI Generation Error:", error);
+    return new Response(JSON.stringify({ error: "AI Engine Busy" }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });

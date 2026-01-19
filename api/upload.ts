@@ -1,8 +1,8 @@
 
 import { put } from '@vercel/blob';
 
-// Edge runtime is used for speed, but we consume the buffer to ensure stability
-export const runtime = 'edge';
+// Forced to Node.js runtime for maximum compatibility with SDKs
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export default async function handler(request: Request) {
@@ -13,11 +13,11 @@ export default async function handler(request: Request) {
     });
   }
 
-  // Vercel injects this automatically when you link the store
+  // Token is automatically injected by Vercel
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) {
     return new Response(JSON.stringify({ 
-      error: 'CRITICAL: Blob Storage Token not found. Please redeploy your Vercel project.' 
+      error: 'CRITICAL: Blob Storage Token not found. Please check your Vercel Environment Variables.' 
     }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
@@ -25,11 +25,11 @@ export default async function handler(request: Request) {
   }
 
   try {
-    const rawFilename = request.headers.get('x-filename') || 'sync-file-' + Date.now();
+    const rawFilename = request.headers.get('x-filename') || `sync-file-${Date.now()}`;
     const filename = decodeURIComponent(rawFilename);
     const contentType = request.headers.get('x-content-type') || 'application/octet-stream';
     
-    // Consume the body as an ArrayBuffer first to avoid stream-hang issues in Edge
+    // Using standard web-api ArrayBuffer for cross-runtime safety
     const buffer = await request.arrayBuffer();
     
     if (!buffer || buffer.byteLength === 0) {
@@ -39,7 +39,8 @@ export default async function handler(request: Request) {
       });
     }
 
-    // Direct upload to the global CDN via Vercel Blob
+    // Fix: Using ArrayBuffer directly instead of Buffer.from() to resolve 'Cannot find name Buffer'
+    // Upload using the Vercel Blob SDK
     const blob = await put(filename, buffer, {
       access: 'public',
       addRandomSuffix: true,
@@ -58,9 +59,9 @@ export default async function handler(request: Request) {
       },
     });
   } catch (error: any) {
-    console.error("Vercel Edge Sync Error:", error);
+    console.error("Vercel Node.js Upload Error:", error);
     return new Response(JSON.stringify({ 
-      error: 'The cloud vault is currently busy or unreachable. Details: ' + (error.message || 'Unknown Error')
+      error: 'The cloud storage system encountered an error: ' + (error.message || 'Unknown Error')
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
