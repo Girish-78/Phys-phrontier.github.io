@@ -8,8 +8,17 @@ export default async function handler(request: Request) {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
+  // Ensure API Key exists
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    return new Response(JSON.stringify({ error: 'API_KEY is missing in environment variables.' }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   const { task, title, description, category } = await request.json();
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: apiKey });
 
   try {
     if (task === 'outcomes') {
@@ -29,29 +38,43 @@ export default async function handler(request: Request) {
     }
 
     if (task === 'thumbnail') {
-      const prompt = `A clean, professional 3D laboratory visualization for a physics simulation titled "${title}". 
-                      Modern, high-tech educational aesthetic. 
-                      Subject matter: ${description}. 
-                      No text. High contrast, cinematic laboratory lighting.`;
+      // Use a more descriptive but safe prompt
+      const prompt = `A professional, 3D high-tech laboratory illustration representing the physics concept: "${title}". 
+                      Subject details: ${description}. 
+                      Style: Modern, cinematic lighting, educational laboratory aesthetic, clean composition. 
+                      No text or labels. 1:1 aspect ratio.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: { parts: [{ text: prompt }] },
-        config: { imageConfig: { aspectRatio: "1:1" } },
+        config: { 
+          imageConfig: { aspectRatio: "1:1" }
+        },
       });
 
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          return new Response(JSON.stringify({ data: part.inlineData.data }), {
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
+      if (!response.candidates || response.candidates.length === 0) {
+        throw new Error("Gemini returned no image candidates.");
+      }
+
+      const part = response.candidates[0].content.parts.find(p => p.inlineData);
+      
+      if (part && part.inlineData) {
+        return new Response(JSON.stringify({ data: part.inlineData.data }), {
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } else {
+        throw new Error("No image data found in response parts.");
       }
     }
 
     return new Response('Task not found', { status: 400 });
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ 
+      error: error.message || 'An error occurred during AI generation' 
+    }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
