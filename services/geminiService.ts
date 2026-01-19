@@ -15,5 +15,6 @@ export const generateThumbnail = async (title: string, description: string) => {
   });
   if (!response.ok) return null;
   const result = await response.json();
-  return `data:image/png;base64,${result.data}`;
+  // Return raw data so frontend can upload to blob storage
+  return result.data;
 };

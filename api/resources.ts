@@ -24,6 +24,12 @@ export default async function handler(request: Request) {
     if (method === 'POST' || method === 'PATCH') {
       const payload = await request.json();
       
+      // Enforce payload size sanity to prevent Sync Failures
+      const payloadSize = JSON.stringify(payload).length;
+      if (payloadSize > 800000) { // ~800KB limit for KV stability
+        return new Response(JSON.stringify({ error: "Payload too large. Use smaller descriptions or ensure images are mirrored to Blob storage." }), { status: 413 });
+      }
+
       // Fast Learning Outcome Generation (Server-side)
       if (!payload.learningOutcomes || payload.learningOutcomes.length === 0) {
         try {
@@ -38,7 +44,10 @@ export default async function handler(request: Request) {
               }
             }
           });
-          payload.learningOutcomes = JSON.parse(aiRes.text);
+          
+          // Clean JSON string in case Gemini adds markdown backticks
+          const cleanJson = aiRes.text.replace(/```json|```/g, '').trim();
+          payload.learningOutcomes = JSON.parse(cleanJson);
         } catch (e) {
           payload.learningOutcomes = ["Understand " + payload.title, "Analyze physics data", "Apply principles"];
         }
@@ -64,6 +73,7 @@ export default async function handler(request: Request) {
 
     return new Response('Method Not Allowed', { status: 405 });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("KV Sync Error:", error);
+    return new Response(JSON.stringify({ error: "Cloud database sync failed: " + error.message }), { status: 500 });
   }
 }
