@@ -38,21 +38,22 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
     }
   }, [editData]);
 
-  // Handle actual Cloud Upload via API with timeout and error handling
+  // Robust Binary Upload to Cloud
   const uploadToCloud = async (file: File) => {
-    setUploading(`Uploading ${file.name}...`);
+    setUploading(`Syncing ${file.name}...`);
     
-    // Create an AbortController to handle timeouts
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout for stability
 
     try {
-      const data = new FormData();
-      data.append('file', file);
-      
+      // Send raw binary to avoid multipart/form-data issues in serverless
       const response = await fetch('/api/upload', {
         method: 'POST',
-        body: data,
+        body: file, // Send the file directly as the body
+        headers: {
+          'x-filename': encodeURIComponent(file.name),
+          'x-content-type': file.type
+        },
         signal: controller.signal
       });
       
@@ -60,7 +61,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Upload failed');
+        throw new Error(errorData.error || 'Cloud synchronization failed.');
       }
 
       const result = await response.json();
@@ -69,9 +70,9 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
       console.error("Cloud Upload Error:", e);
       let errorMsg = "Upload failed.";
       if (e.name === 'AbortError') {
-        errorMsg = "Request timed out. The file might be too large or the server is busy.";
+        errorMsg = "Connection timed out. Please check your internet and try a smaller file.";
       } else {
-        errorMsg = e.message || "Failed to upload to Vercel Blob.";
+        errorMsg = e.message || "Failed to reach the cloud storage server.";
       }
       alert(errorMsg);
       throw e;
@@ -84,40 +85,35 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Basic size check before attempting upload
-      if (file.size > 4.5 * 1024 * 1024) {
-        alert("Image is too large. Please keep it under 4.5MB.");
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image must be smaller than 5MB.");
         return;
       }
       try {
         const url = await uploadToCloud(file);
         setFormData(prev => ({ ...prev, thumbnailUrl: url }));
-      } catch (err) {
-        // Error already handled in uploadToCloud
-      }
+      } catch (err) {}
     }
   };
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 4.5 * 1024 * 1024) {
-        alert("PDF is too large. Please keep it under 4.5MB.");
+      if (file.size > 10 * 1024 * 1024) {
+        alert("PDF must be smaller than 10MB.");
         return;
       }
       try {
         const url = await uploadToCloud(file);
         setFormData(prev => ({ ...prev, contentUrl: url }));
-      } catch (err) {
-        // Error already handled
-      }
+      } catch (err) {}
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.contentUrl) {
-      alert("Please provide a simulation URL or upload a PDF.");
+      alert("Please upload a PDF or provide a Simulation URL.");
       return;
     }
 
@@ -145,21 +141,13 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
         else onAdd(payload);
         navigate('/');
       } else {
-        throw new Error("Failed to save to cloud database.");
+        throw new Error("Failed to save resource metadata to KV storage.");
       }
     } catch (err: any) {
-      alert(err.message || "Error saving to Cloud Database.");
+      alert(err.message || "Network Error: Could not synchronize with the global database.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSuggestOutcomes = async () => {
-    if (!formData.title || !formData.description) return;
-    setLoading(true);
-    const outcomes = await generateLearningOutcomes(formData.title, formData.category, formData.description);
-    setFormData(prev => ({ ...prev, learningOutcomes: outcomes.join('\n') }));
-    setLoading(false);
   };
 
   const isSimulation = formData.type === ResourceType.SIMULATION;
@@ -171,17 +159,17 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
           <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
         </button>
         <div>
-          <h1 className="text-4xl font-black text-white tracking-tight leading-none mb-1">{editData ? 'Modify Resource' : 'Publish Content'}</h1>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Cloud Sync Module</p>
+          <h1 className="text-4xl font-black text-white tracking-tight leading-none mb-1">{editData ? 'Edit Phrontier Lab' : 'Publish New Content'}</h1>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Global Library Synchronization</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-12 bg-[#0F172A] p-12 rounded-[4rem] border border-white/10 shadow-2xl relative">
         {uploading && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-[4rem] p-10 text-center">
-             <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-             <p className="font-black text-white uppercase tracking-widest text-xs animate-pulse mb-2">{uploading}</p>
-             <p className="text-slate-400 text-[10px] max-w-xs">This might take a minute depending on your connection.</p>
+          <div className="absolute inset-0 bg-[#020617]/90 backdrop-blur-md z-50 flex flex-col items-center justify-center rounded-[4rem] p-12 text-center">
+             <div className="w-14 h-14 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+             <p className="font-black text-white uppercase tracking-[0.3em] text-sm animate-pulse mb-3">{uploading}</p>
+             <p className="text-slate-500 text-xs max-w-xs leading-relaxed">Securing your material in the cloud vault. This resource will be available globally once finished.</p>
           </div>
         )}
 
@@ -189,25 +177,25 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
           <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">Resource Classification</label>
           <div className="flex flex-wrap gap-5">
             {Object.values(ResourceType).map(type => (
-              <button key={type} type="button" onClick={() => setFormData({ ...formData, type })} className={`flex-1 min-w-[140px] py-5 rounded-[2rem] border-2 font-black text-xs uppercase tracking-widest transition-all ${formData.type === type ? 'border-indigo-600 bg-indigo-600/10 text-indigo-400' : 'border-white/5 bg-white/5 text-slate-500 hover:border-white/10'}`}>{type}</button>
+              <button key={type} type="button" onClick={() => setFormData({ ...formData, type })} className={`flex-1 min-w-[140px] py-5 rounded-[2rem] border-2 font-black text-xs uppercase tracking-widest transition-all ${formData.type === type ? 'border-indigo-600 bg-indigo-600/10 text-indigo-400 shadow-xl shadow-indigo-500/10' : 'border-white/5 bg-white/5 text-slate-500 hover:border-white/10'}`}>{type}</button>
             ))}
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-          <div className="space-y-4">
-            <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">Resource Title</label>
-            <input required type="text" className="w-full px-7 py-5 rounded-[1.75rem] bg-[#020617] border border-white/5 outline-none font-bold text-white" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
+          <div className="space-y-4 md:col-span-2">
+            <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">Module Title</label>
+            <input required type="text" placeholder="e.g. Quantum Entanglement Basics" className="w-full px-8 py-6 rounded-[2rem] bg-[#020617] border border-white/5 outline-none font-bold text-white focus:border-indigo-500/50 transition-all shadow-inner" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
           </div>
 
           <div className="space-y-4 md:col-span-2">
-            <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">{isSimulation ? 'Simulation URL' : 'Worksheet Content (Cloud PDF)'}</label>
+            <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">{isSimulation ? 'External Simulation Link' : 'Study Material (PDF)'}</label>
             {isSimulation ? (
-              <input required type="url" className="w-full px-7 py-5 rounded-[1.75rem] bg-[#020617] border border-white/5 outline-none font-bold text-white" value={formData.contentUrl} onChange={(e) => setFormData({ ...formData, contentUrl: e.target.value })} />
+              <input required type="url" placeholder="https://..." className="w-full px-8 py-6 rounded-[2rem] bg-[#020617] border border-white/5 outline-none font-bold text-white focus:border-indigo-500/50 transition-all shadow-inner" value={formData.contentUrl} onChange={(e) => setFormData({ ...formData, contentUrl: e.target.value })} />
             ) : (
-              <div className="flex flex-col sm:flex-row gap-5 items-start">
-                <input type="text" readOnly className="flex-1 w-full px-7 py-5 rounded-[1.75rem] bg-[#020617] border border-white/5 text-slate-500 font-bold" value={formData.contentUrl ? 'PDF Stored in Vercel Blob' : 'No file chosen'} />
-                <label className="w-full sm:w-auto shrink-0 bg-emerald-600 text-white px-10 py-5 rounded-[1.75rem] font-black text-xs uppercase tracking-widest cursor-pointer hover:bg-emerald-500 transition-all shadow-xl shadow-emerald-500/20 text-center">
+              <div className="flex flex-col sm:flex-row gap-5 items-stretch">
+                <input type="text" readOnly placeholder="No PDF Synchronized" className="flex-1 px-8 py-6 rounded-[2rem] bg-[#020617] border border-white/5 text-slate-500 font-bold overflow-hidden text-ellipsis" value={formData.contentUrl ? '✅ PDF Ready in Cloud' : ''} />
+                <label className="shrink-0 bg-emerald-600 text-white px-10 py-6 rounded-[2rem] font-black text-xs uppercase tracking-widest cursor-pointer hover:bg-emerald-500 transition-all shadow-2xl shadow-emerald-500/20 text-center flex items-center justify-center">
                   Select PDF
                   <input type="file" className="hidden" accept="application/pdf" onChange={handlePdfUpload} />
                 </label>
@@ -216,32 +204,35 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData }) =>
           </div>
 
           <div className="space-y-4 md:col-span-2">
-            <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">Module Branding (Cloud Image)</label>
-            <div className="flex flex-col sm:flex-row gap-5 items-start">
-              <input type="text" readOnly className="flex-1 w-full px-7 py-5 rounded-[1.75rem] bg-[#020617] border border-white/5 text-slate-500 font-bold" value={formData.thumbnailUrl ? 'Thumbnail Hosted in Blob' : 'Using Category Default'} />
-              <label className="w-full sm:w-auto shrink-0 bg-indigo-600 text-white px-10 py-5 rounded-[1.75rem] font-black text-xs uppercase tracking-widest cursor-pointer hover:bg-indigo-500 transition-all shadow-xl text-center">
+            <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">Thumbnail Identity</label>
+            <div className="flex flex-col sm:flex-row gap-5 items-stretch">
+              <input type="text" readOnly placeholder="Using category default" className="flex-1 px-8 py-6 rounded-[2rem] bg-[#020617] border border-white/5 text-slate-500 font-bold overflow-hidden text-ellipsis" value={formData.thumbnailUrl ? '✅ Image Synchronized' : ''} />
+              <label className="shrink-0 bg-indigo-600 text-white px-10 py-6 rounded-[2rem] font-black text-xs uppercase tracking-widest cursor-pointer hover:bg-indigo-500 transition-all shadow-2xl shadow-indigo-500/20 text-center flex items-center justify-center">
                 Select Image
                 <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
               </label>
             </div>
             {formData.thumbnailUrl && (
-              <div className="mt-4 flex items-center gap-4">
-                <img src={formData.thumbnailUrl} alt="Preview" className="w-20 h-20 object-cover rounded-2xl border border-white/10" />
-                <button type="button" onClick={() => setFormData(prev => ({ ...prev, thumbnailUrl: '' }))} className="text-red-400 text-[10px] font-black uppercase tracking-widest hover:underline">Remove</button>
+              <div className="mt-4 flex items-center gap-6 p-4 bg-white/5 rounded-[2rem] border border-white/5">
+                <img src={formData.thumbnailUrl} alt="Preview" className="w-24 h-24 object-cover rounded-2xl ring-4 ring-indigo-500/10" />
+                <div>
+                  <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Preview Loaded</p>
+                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, thumbnailUrl: '' }))} className="text-red-400 text-xs font-bold hover:underline">Remove Image</button>
+                </div>
               </div>
             )}
           </div>
         </div>
 
         <div className="space-y-4">
-          <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">Brief Abstract</label>
-          <textarea required rows={2} className="w-full px-7 py-5 rounded-[1.75rem] bg-[#020617] border border-white/5 outline-none font-bold text-white resize-none" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+          <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">Curriculum Abstract</label>
+          <textarea required rows={3} placeholder="Provide a brief description of the topic covered..." className="w-full px-8 py-7 rounded-[2rem] bg-[#020617] border border-white/5 outline-none font-bold text-white resize-none focus:border-indigo-500/50 transition-all" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
         </div>
 
-        <div className="pt-12 border-t border-white/5 flex flex-col sm:flex-row justify-end gap-5">
-          <button type="button" onClick={() => navigate(-1)} className="px-12 py-6 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-600 hover:text-slate-400">Discard</button>
-          <button type="submit" disabled={loading || !!uploading} className="px-14 py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-indigo-500 transition-all disabled:opacity-50">
-            {loading ? 'Saving to Cloud...' : (editData ? 'Sync Changes' : 'Push to Cloud Library')}
+        <div className="pt-12 border-t border-white/5 flex flex-col sm:flex-row justify-end gap-6">
+          <button type="button" onClick={() => navigate(-1)} className="px-12 py-6 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-600 hover:text-slate-400 transition-colors">Discard</button>
+          <button type="submit" disabled={loading || !!uploading} className="px-14 py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-widest shadow-2xl shadow-indigo-500/30 hover:bg-indigo-500 transition-all disabled:opacity-50 active:scale-95">
+            {loading ? 'Committing to KV...' : (editData ? 'Sync Changes' : 'Publish to Global Lab')}
           </button>
         </div>
       </form>
