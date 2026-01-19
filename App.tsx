@@ -8,6 +8,8 @@ import UploadForm from './components/UploadForm';
 import SimulationPlayer from './components/SimulationPlayer';
 import Sidebar from './components/Sidebar';
 
+export const dynamic = 'force-dynamic';
+
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [resources, setResources] = useState<PhysicsResource[]>([]);
@@ -23,7 +25,14 @@ const App: React.FC = () => {
     const fetchResources = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/resources');
+        // Using cache: 'no-store' to ensure we always get the latest data from the server
+        const response = await fetch('/api/resources', { 
+          cache: 'no-store',
+          headers: {
+            'Pragma': 'no-cache',
+            'Cache-Control': 'no-cache'
+          }
+        });
         if (response.ok) {
           const data = await response.json();
           setResources(Array.isArray(data) ? data : []);

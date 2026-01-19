@@ -2,6 +2,7 @@
 import { kv } from '@vercel/kv';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const KV_KEY = 'phrontier_resources_v1';
 
@@ -15,7 +16,10 @@ export default async function handler(request: Request) {
       const resources = await kv.get(KV_KEY);
       return new Response(JSON.stringify(resources || []), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store, max-age=0'
+        },
       });
     }
 
