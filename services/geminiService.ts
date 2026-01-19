@@ -1,20 +1,13 @@
 
 export const generateLearningOutcomes = async (title: string, category: string, description: string) => {
-  const response = await fetch('/api/generate', {
-    method: 'POST',
-    body: JSON.stringify({ task: 'outcomes', title, description, category })
-  });
-  if (!response.ok) return ["Understand the core concepts of " + title, "Analyze physics properties", "Solve practical problems"];
-  return await response.json();
-};
-
-export const generateThumbnail = async (title: string, description: string) => {
-  const response = await fetch('/api/generate', {
-    method: 'POST',
-    body: JSON.stringify({ task: 'thumbnail', title, description })
-  });
-  if (!response.ok) return null;
-  const result = await response.json();
-  // Return raw data so frontend can upload to blob storage
-  return result.data;
+  try {
+    const response = await fetch('/api/generate', {
+      method: 'POST',
+      body: JSON.stringify({ task: 'outcomes', title, description, category })
+    });
+    if (!response.ok) throw new Error("AI busy");
+    return await response.json();
+  } catch (e) {
+    return ["Master theoretical principles", "Analyze experimental data", "Solve complex problems"];
+  }
 };

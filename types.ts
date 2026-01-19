@@ -25,8 +25,9 @@ export interface PhysicsResource {
   userGuide: string;
   learningOutcomes: string[];
   contentUrl: string; 
-  thumbnailUrl?: string;
   createdAt: string;
+  // Added optional thumbnailUrl to fix interface mismatch errors
+  thumbnailUrl?: string;
 }
 
 export interface Category {

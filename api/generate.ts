@@ -9,16 +9,17 @@ export default async function handler(request: Request) {
   }
 
   const apiKey = process.env.API_KEY;
-  if (!apiKey) return new Response(JSON.stringify({ error: 'API Key not configured in Vercel' }), { status: 500 });
+  if (!apiKey) return new Response(JSON.stringify({ error: 'System config error' }), { status: 500 });
 
   try {
     const { task, title, category } = await request.json();
+    // Initialize Google GenAI with API key from environment
     const ai = new GoogleGenAI({ apiKey: apiKey });
 
     if (task === 'outcomes') {
       const res = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Generate a JSON array of 3 physics learning objectives for: ${title} in the domain of ${category}.`,
+        contents: `Provide a 3-item JSON string array of physics learning outcomes for: ${title} (${category}). Keep it short.`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -28,33 +29,17 @@ export default async function handler(request: Request) {
         }
       });
       
-      // Sanitize: Gemini often wraps response in markdown backticks
-      const cleanText = res.text.replace(/```json|```/g, '').trim();
+      // Safely access the .text property (not a method) from the response
+      const outputText = res.text || '[]';
+      const cleanText = outputText.replace(/```json|```/g, '').trim();
       return new Response(cleanText, { 
         headers: { 'Content-Type': 'application/json' } 
       });
     }
 
-    if (task === 'thumbnail') {
-      const prompt = `Professional 3D scientific visual: ${title}, ${category}. 1:1 ratio, high quality.`;
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: { parts: [{ text: prompt }] },
-        config: { imageConfig: { aspectRatio: "1:1" } },
-      });
-
-      const imagePart = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-      if (imagePart?.inlineData?.data) {
-        return new Response(JSON.stringify({ data: imagePart.inlineData.data }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-      throw new Error("AI busy");
-    }
-
-    return new Response(JSON.stringify({ error: 'Invalid task' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Task obsolete' }), { status: 400 });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: "AI logic busy" }), { 
+    return new Response(JSON.stringify({ error: "AI Congestion" }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
