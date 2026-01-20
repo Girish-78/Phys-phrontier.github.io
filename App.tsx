@@ -13,30 +13,30 @@ export const dynamic = 'force-dynamic';
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [resources, setResources] = useState<PhysicsResource[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<PhysicsResource | null>(null);
 
-  useEffect(() => {
-    const fetchResources = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/resources', { 
-          cache: 'no-store'
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setResources(Array.isArray(data) ? data : []);
-        }
-      } catch (e) {
-        console.error("Cloud fetch failed", e);
-      } finally {
-        setLoading(false);
+  const fetchResources = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/resources', { 
+        cache: 'no-store'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setResources(Array.isArray(data) ? data : []);
       }
-    };
-    
+    } catch (e) {
+      console.error("Cloud fetch failed", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (user) fetchResources();
   }, [user]);
 
@@ -124,19 +124,12 @@ const App: React.FC = () => {
           </header>
 
           <div className="p-6 sm:p-10 max-w-[1600px] mx-auto">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-40">
-                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="mt-6 font-black text-indigo-400 uppercase tracking-widest text-[10px]">Cloud Lab Sync Active...</p>
-              </div>
-            ) : (
-              <Routes>
-                <Route path="/" element={<Dashboard resources={filteredResources} isAdmin={user.role === UserRole.ADMIN} onDelete={handleDeleteResource} onEdit={handleEditClick} />} />
-                <Route path="/upload" element={user.role === UserRole.ADMIN ? <UploadForm onAdd={handleAddResource} onUpdate={handleUpdateResource} editData={editingResource} /> : <Navigate to="/" />} />
-                <Route path="/play/:id" element={<SimulationPlayer resources={resources} />} />
-                <Route path="*" element={<Navigate to="/" />} />
-              </Routes>
-            )}
+            <Routes>
+              <Route path="/" element={<Dashboard resources={filteredResources} isAdmin={user.role === UserRole.ADMIN} onDelete={handleDeleteResource} onEdit={handleEditClick} loading={loading} />} />
+              <Route path="/upload" element={user.role === UserRole.ADMIN ? <UploadForm onAdd={handleAddResource} onUpdate={handleUpdateResource} editData={editingResource} adminName={user.name} /> : <Navigate to="/" />} />
+              <Route path="/play/:id" element={<SimulationPlayer resources={resources} />} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
           </div>
         </main>
       </div>

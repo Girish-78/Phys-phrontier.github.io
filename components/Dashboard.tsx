@@ -8,15 +8,27 @@ interface DashboardProps {
   isAdmin: boolean;
   onDelete: (id: string) => void;
   onEdit: (resource: PhysicsResource) => void;
+  loading: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ resources, isAdmin, onDelete, onEdit }) => {
+const Dashboard: React.FC<DashboardProps> = ({ resources, isAdmin, onDelete, onEdit, loading }) => {
+  if (loading && resources.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-40">
+        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-6 font-black text-indigo-400 uppercase tracking-widest text-[10px]">Cloud Lab Sync Active...</p>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 px-1">
         <div>
           <h2 className="text-4xl font-black text-white tracking-tighter leading-none mb-3">Discovery Engine</h2>
-          <p className="text-indigo-300 font-bold uppercase text-[10px] tracking-[0.2em]">Synchronized with browser: {resources.length} active modules</p>
+          <p className="text-indigo-300 font-bold uppercase text-[10px] tracking-[0.2em]">
+            {loading ? 'Refreshing Library...' : `Synchronized with browser: ${resources.length} active modules`}
+          </p>
         </div>
       </div>
 
