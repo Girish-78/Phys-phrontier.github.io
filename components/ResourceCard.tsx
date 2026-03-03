@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { PhysicsResource } from '../types';
-import { Scale, Activity, Beaker, Share2, Edit3, Trash2, ArrowUpRight } from 'lucide-react';
+import { PhysicsResource, ResourceType } from '../types';
+import { Scale, Activity, Beaker, Share2, Edit3, Trash2, ArrowUpRight, Download, Printer, FileText, Globe } from 'lucide-react';
 
 interface ResourceCardProps {
   resource: PhysicsResource;
@@ -13,6 +13,9 @@ interface ResourceCardProps {
 
 const ResourceCard: React.FC<ResourceCardProps> = ({ resource, isAdmin, onDelete, onEdit }) => {
   const getIcon = () => {
+    if (resource.thumbnailUrl) {
+      return <img src={resource.thumbnailUrl} alt={resource.title} className="w-full h-full object-cover rounded-2xl" referrerPolicy="no-referrer" />;
+    }
     const title = resource.title.toLowerCase();
     if (title.includes('gravit')) return <Scale className="w-12 h-12 text-emerald-400" />;
     if (title.includes('wave') || title.includes('oscillat')) return <Activity className="w-12 h-12 text-sky-400" />;
@@ -30,10 +33,23 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, isAdmin, onDelete
     }
   };
 
+  const handlePrint = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const printWindow = window.open(resource.contentUrl, '_blank');
+    if (printWindow) {
+      printWindow.focus();
+      // Note: We can't trigger print() directly on cross-origin iframes easily, 
+      // but opening it in a new tab is the first step.
+    }
+  };
+
+  const isSimulation = resource.type === ResourceType.SIMULATION;
+
   return (
     <div className="group relative bg-[#0F172A] rounded-[2.5rem] border border-white/5 p-8 shadow-2xl hover:shadow-indigo-500/10 hover:border-indigo-500/20 transition-all duration-500 flex flex-col h-full">
       <div className="flex justify-between items-start mb-8">
-        <div className="p-5 bg-white/5 rounded-3xl border border-white/10 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/30 transition-all duration-500">
+        <div className="w-20 h-20 bg-white/5 rounded-3xl border border-white/10 group-hover:bg-indigo-500/10 group-hover:border-indigo-500/30 transition-all duration-500 flex items-center justify-center overflow-hidden">
           {getIcon()}
         </div>
         <div className="flex gap-2">
@@ -58,6 +74,9 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, isAdmin, onDelete
           <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-3 py-1 rounded-lg border border-indigo-500/20">
             {resource.category}
           </span>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white/5 px-3 py-1 rounded-lg border border-white/10">
+            {resource.type}
+          </span>
         </div>
         <h3 className="font-black text-white text-xl mb-3 tracking-tight group-hover:text-indigo-300 transition-colors">
           {resource.title}
@@ -68,12 +87,30 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, isAdmin, onDelete
       </div>
       
       <div className="grid grid-cols-2 gap-3 pt-6 border-t border-white/5">
-        <Link to={`/play/${resource.id}`} className="flex items-center justify-center gap-2 py-3.5 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-500 transition-all">
-          Lab Profile
-        </Link>
-        <a href={resource.contentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 py-3.5 bg-white/5 text-slate-300 border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all">
-          Quick Launch <ArrowUpRight size={14} />
-        </a>
+        {isSimulation ? (
+          <>
+            <Link to={`/play/${resource.id}`} className="flex items-center justify-center gap-2 py-3.5 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-500 transition-all">
+              Lab Profile
+            </Link>
+            <a href={resource.contentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 py-3.5 bg-white/5 text-slate-300 border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all">
+              Quick Launch <ArrowUpRight size={14} />
+            </a>
+          </>
+        ) : (
+          <>
+            <a href={resource.contentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 py-3.5 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-500 transition-all">
+              View <Globe size={14} />
+            </a>
+            <div className="flex gap-2">
+              <button onClick={handlePrint} className="flex-1 flex items-center justify-center py-3.5 bg-white/5 text-slate-300 border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all">
+                <Printer size={14} />
+              </button>
+              <a href={resource.contentUrl} download className="flex-1 flex items-center justify-center py-3.5 bg-white/5 text-slate-300 border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all">
+                <Download size={14} />
+              </a>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

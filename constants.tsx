@@ -2,14 +2,13 @@
 import { Category, ResourceType, PhysicsResource } from './types';
 
 export const CATEGORIES: Category[] = [
-  { id: 'mechanics', name: 'Mechanics', icon: '⚡', subCategories: ['Kinematics', 'Dynamics', 'Rotation', 'Gravitation'] },
-  { id: 'thermo', name: 'Thermodynamics', icon: '🔥', subCategories: ['Heat Transfer', 'Laws of Thermodynamics', 'Kinetic Theory'] },
-  { id: 'waves', name: 'Waves & Oscillations', icon: '🌊', subCategories: ['SHM', 'Sound Waves', 'Wave Motion'] },
-  { id: 'electricity', name: 'Electricity', icon: '💡', subCategories: ['Electrostatics', 'Current Electricity', 'Capacitance'] },
-  { id: 'magnetism', name: 'Magnetism', icon: '🧲', subCategories: ['Magnetic Effects', 'EMI', 'AC Currents'] },
-  { id: 'optics', name: 'Optics', icon: '🔭', subCategories: ['Ray Optics', 'Wave Optics'] },
-  { id: 'modern', name: 'Modern Physics', icon: '⚛️', subCategories: ['Atoms', 'Nuclei', 'Dual Nature'] },
-  { id: 'astronomy', name: 'Astronomy', icon: '🪐', subCategories: ['Indian Astronomy (Surya Siddhanta)', 'Celestial Mechanics', 'Observational Astronomy'] },
+  { id: 'mechanics', name: 'Mechanics', icon: '⚡', subCategories: ['Kinematics', 'Dynamics', 'Rotation', 'Gravitation', 'Fluid Mechanics'] },
+  { id: 'electricity-magnetism', name: 'Electricity & Magnetism', icon: '💡', subCategories: ['Electrostatics', 'Current Electricity', 'Capacitance', 'Magnetic Effects', 'EMI', 'AC Currents'] },
+  { id: 'optics', name: 'Optics', icon: '🔭', subCategories: ['Ray Optics', 'Wave Optics', 'Optical Instruments'] },
+  { id: 'modern', name: 'Modern Physics', icon: '⚛️', subCategories: ['Atoms', 'Nuclei', 'Dual Nature', 'Semiconductors'] },
+  { id: 'thermo', name: 'Thermodynamics', icon: '🔥', subCategories: ['Heat Transfer', 'Laws of Thermodynamics', 'Kinetic Theory', 'Statistical Mechanics'] },
+  { id: 'astronomy', name: 'Astronomy', icon: '🪐', subCategories: ['Indian Astronomy (Surya Siddhanta)', 'Celestial Mechanics', 'Observational Astronomy', 'Astrophysics'] },
+  { id: 'waves', name: 'Waves & Oscillations', icon: '🌊', subCategories: ['SHM', 'Sound Waves', 'Wave Motion', 'Superposition'] },
 ];
 
 export const MOCK_RESOURCES: PhysicsResource[] = [

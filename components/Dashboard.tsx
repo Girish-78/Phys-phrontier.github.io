@@ -9,14 +9,31 @@ interface DashboardProps {
   onDelete: (id: string) => void;
   onEdit: (resource: PhysicsResource) => void;
   loading: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ resources, isAdmin, onDelete, onEdit, loading }) => {
+const Dashboard: React.FC<DashboardProps> = ({ resources, isAdmin, onDelete, onEdit, loading, error, onRetry }) => {
   if (loading && resources.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-40">
         <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
         <p className="mt-6 font-black text-indigo-400 uppercase tracking-widest text-[10px]">Cloud Lab Sync Active...</p>
+      </div>
+    );
+  }
+
+  if (error && resources.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-40 text-center">
+        <div className="w-16 h-16 bg-red-500/10 rounded-3xl flex items-center justify-center mb-8 border border-red-500/20">
+          <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        </div>
+        <h3 className="text-2xl font-black text-white mb-4 tracking-tight">Sync Failure</h3>
+        <p className="text-slate-400 max-w-md mx-auto font-medium mb-8">{error}</p>
+        <button onClick={onRetry} className="px-8 py-4 bg-white text-indigo-950 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-50 transition-all active:scale-95">
+          Retry Connection
+        </button>
       </div>
     );
   }

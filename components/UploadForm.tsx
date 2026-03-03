@@ -21,22 +21,65 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData, admi
   const [formData, setFormData] = useState({
     title: '',
     category: CATEGORIES[0].name,
-    subCategory: '',
+    subCategory: CATEGORIES[0].subCategories[0],
     type: ResourceType.SIMULATION,
     author: adminName || '',
     description: '',
     userGuide: '',
     contentUrl: '',
-    learningOutcomes: [] as string[]
+    learningOutcomes: [] as string[],
+    thumbnailUrl: '',
+    keywords: ''
   });
+
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (editData) {
-      setFormData({ ...editData } as any);
+      setFormData({ 
+        ...editData, 
+        keywords: editData.keywords?.join(', ') || '' 
+      } as any);
     }
   }, [editData]);
 
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image size must be less than 5MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+          'x-filename': encodeURIComponent(file.name),
+          'x-content-type': file.type
+        },
+        body: await file.arrayBuffer()
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFormData(prev => ({ ...prev, thumbnailUrl: data.url }));
+      } else {
+        throw new Error("Upload failed");
+      }
+    } catch (err) {
+      alert("Upload Error: " + (err as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const getPreviewIcon = () => {
+    if (formData.thumbnailUrl) {
+      return <img src={formData.thumbnailUrl} alt="Thumbnail" className="w-full h-full object-cover rounded-[2.5rem]" referrerPolicy="no-referrer" />;
+    }
     const title = formData.title.toLowerCase();
     if (title.includes('gravit')) return <Scale className="w-16 h-16 text-emerald-400" />;
     if (title.includes('wave') || title.includes('oscillat')) return <Activity className="w-16 h-16 text-sky-400" />;
@@ -63,6 +106,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData, admi
     try {
       const payload = { 
         ...formData, 
+        keywords: formData.keywords.split(',').map(k => k.trim()).filter(k => k),
         learningOutcomes: formData.learningOutcomes.length > 0 ? formData.learningOutcomes : ["Interactive Exploration"],
         id: editData ? editData.id : Date.now().toString(),
         createdAt: editData ? editData.createdAt : new Date().toISOString()
@@ -88,6 +132,8 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData, admi
     }
   };
 
+  const activeCategoryObj = CATEGORIES.find(c => c.name === formData.category);
+
   return (
     <div className="max-w-4xl mx-auto pb-20 animate-in fade-in duration-300">
       <div className="flex items-center justify-between mb-12">
@@ -102,10 +148,16 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData, admi
       <form onSubmit={handleSubmit} className="bg-[#0F172A] p-8 sm:p-12 rounded-[3.5rem] border border-white/5 shadow-2xl space-y-10">
         <div className="flex flex-col md:flex-row gap-12 items-start">
           <div className="w-full md:w-1/3 flex flex-col items-center">
-             <div className="w-40 h-40 bg-white/5 rounded-[2.5rem] border border-white/10 flex items-center justify-center mb-6 shadow-inner">
+             <div className="w-40 h-40 bg-white/5 rounded-[2.5rem] border border-white/10 flex items-center justify-center mb-6 shadow-inner overflow-hidden relative group">
                 {getPreviewIcon()}
+                <label className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">
+                    {uploading ? 'Uploading...' : 'Upload Thumbnail'}
+                  </span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleThumbnailUpload} disabled={uploading} />
+                </label>
              </div>
-             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Visual ID</p>
+             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Thumbnail (Max 5MB)</p>
           </div>
 
           <div className="flex-1 space-y-8 w-full">
@@ -117,24 +169,50 @@ const UploadForm: React.FC<UploadFormProps> = ({ onAdd, onUpdate, editData, admi
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Category</label>
-                <select className="w-full px-6 py-5 rounded-2xl bg-[#020617] border border-white/10 text-slate-300 font-bold outline-none" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}>
+                <select className="w-full px-6 py-5 rounded-2xl bg-[#020617] border border-white/10 text-slate-300 font-bold outline-none" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value, subCategory: CATEGORIES.find(c => c.name === e.target.value)?.subCategories[0] || '' })}>
                   {CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
               <div className="space-y-4">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Source URL</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Sub-Category</label>
+                <select className="w-full px-6 py-5 rounded-2xl bg-[#020617] border border-white/10 text-slate-300 font-bold outline-none" value={formData.subCategory} onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}>
+                  {activeCategoryObj?.subCategories.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Resource Type</label>
+                <select className="w-full px-6 py-5 rounded-2xl bg-[#020617] border border-white/10 text-slate-300 font-bold outline-none" value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value as ResourceType })}>
+                  {Object.values(ResourceType).map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Source URL (GitHub/PDF/Sim)</label>
                 <input required type="url" placeholder="https://..." className="w-full px-6 py-5 rounded-2xl bg-[#020617] border border-white/10 text-white font-bold outline-none" value={formData.contentUrl} onChange={(e) => setFormData({ ...formData, contentUrl: e.target.value })} />
               </div>
             </div>
 
-            <div className="space-y-4">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Curator</label>
-              <input required type="text" className="w-full px-6 py-5 rounded-2xl bg-[#020617] border border-white/10 text-white font-bold outline-none" value={formData.author} onChange={(e) => setFormData({ ...formData, author: e.target.value })} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Curator</label>
+                <input required type="text" className="w-full px-6 py-5 rounded-2xl bg-[#020617] border border-white/10 text-white font-bold outline-none" value={formData.author} onChange={(e) => setFormData({ ...formData, author: e.target.value })} />
+              </div>
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Keywords (comma separated)</label>
+                <input type="text" placeholder="physics, lab, motion..." className="w-full px-6 py-5 rounded-2xl bg-[#020617] border border-white/10 text-white font-bold outline-none" value={formData.keywords} onChange={(e) => setFormData({ ...formData, keywords: e.target.value })} />
+              </div>
             </div>
 
             <div className="space-y-4">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Abstract</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Abstract / Description</label>
               <textarea required rows={3} className="w-full px-6 py-5 rounded-2xl bg-[#020617] border border-white/10 text-white font-bold resize-none" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+            </div>
+
+            <div className="space-y-4">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">User Guide / Briefing</label>
+              <textarea rows={2} placeholder="How to use this resource..." className="w-full px-6 py-5 rounded-2xl bg-[#020617] border border-white/10 text-white font-bold resize-none" value={formData.userGuide} onChange={(e) => setFormData({ ...formData, userGuide: e.target.value })} />
             </div>
 
             <div className="pt-8 border-t border-white/5 space-y-6">

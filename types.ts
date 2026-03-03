@@ -5,7 +5,10 @@ export enum UserRole {
 }
 
 export enum ResourceType {
-  SIMULATION = 'Simulation'
+  SIMULATION = 'Simulation',
+  WORKSHEET = 'Worksheet',
+  STUDY_MATERIAL = 'Study Material',
+  VISUAL_SUMMARY = 'Visual Summary'
 }
 
 export interface User {
@@ -26,8 +29,8 @@ export interface PhysicsResource {
   learningOutcomes: string[];
   contentUrl: string; 
   createdAt: string;
-  // Added optional thumbnailUrl to fix interface mismatch errors
   thumbnailUrl?: string;
+  keywords?: string[];
 }
 
 export interface Category {

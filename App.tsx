@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [resources, setResources] = useState<PhysicsResource[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -22,15 +23,20 @@ const App: React.FC = () => {
   const fetchResources = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch('/api/resources', { 
         cache: 'no-store'
       });
       if (response.ok) {
         const data = await response.json();
         setResources(Array.isArray(data) ? data : []);
+      } else {
+        const errData = await response.json();
+        setError(errData.error || "Failed to sync with cloud database.");
       }
     } catch (e) {
       console.error("Cloud fetch failed", e);
+      setError("Network error: Could not reach the lab server.");
     } finally {
       setLoading(false);
     }
@@ -49,7 +55,7 @@ const App: React.FC = () => {
   const filteredResources = useMemo(() => {
     return resources.filter(res => {
       if (!res) return false;
-      const searchStr = `${res.title} ${res.description} ${res.category}`.toLowerCase();
+      const searchStr = `${res.title} ${res.description} ${res.category} ${res.subCategory} ${res.keywords?.join(' ')}`.toLowerCase();
       const matchesSearch = searchStr.includes(searchQuery.toLowerCase());
       const matchesCategory = activeCategory ? res.category === activeCategory : true;
       return matchesSearch && matchesCategory;
@@ -125,7 +131,7 @@ const App: React.FC = () => {
 
           <div className="p-6 sm:p-10 max-w-[1600px] mx-auto">
             <Routes>
-              <Route path="/" element={<Dashboard resources={filteredResources} isAdmin={user.role === UserRole.ADMIN} onDelete={handleDeleteResource} onEdit={handleEditClick} loading={loading} />} />
+              <Route path="/" element={<Dashboard resources={filteredResources} isAdmin={user.role === UserRole.ADMIN} onDelete={handleDeleteResource} onEdit={handleEditClick} loading={loading} error={error} onRetry={fetchResources} />} />
               <Route path="/upload" element={user.role === UserRole.ADMIN ? <UploadForm onAdd={handleAddResource} onUpdate={handleUpdateResource} editData={editingResource} adminName={user.name} /> : <Navigate to="/" />} />
               <Route path="/play/:id" element={<SimulationPlayer resources={resources} />} />
               <Route path="*" element={<Navigate to="/" />} />
